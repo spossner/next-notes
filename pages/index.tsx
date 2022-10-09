@@ -1,29 +1,53 @@
-import type { NextPage } from 'next'
-import { format } from 'path';
-import { useState } from 'react';
+import { Note } from "@prisma/client";
+import type { GetServerSideProps, NextPage } from "next";
+import { useRouter } from "next/router";
+import NoteForm from "../components/notes/note-form";
+import NotesList from "../components/notes/note-list";
+import { prisma } from "../lib/prisma";
 
-const Home: NextPage = () => {
-  const [form, setForm] = useState<{title: string, content:string, id:string}>({title:"", content:"", id:""});
+const Home: NextPage<{ notes: Note[] }> = ({ notes }) => {
+  const router = useRouter();
+  const reloadData = () => {
+    router.replace(router.asPath);
+  };
+  async function addNote(title: string, content: string) {
+    fetch("/api/notes", {
+      method: "POST",
+      body: JSON.stringify({ title, content }),
+      headers: {
+        "Content-type": "application/json; charset=UTF-8",
+      },
+    }).then(() => {
+      reloadData();
+    });
+  }
+
+  async function removeNote(id: number) {
+    fetch(`/api/notes/${id}`, {
+      method: "DELETE",
+    }).then(() => {
+      reloadData();
+    });
+  }
 
   return (
     <div className="container mx-auto max-w-4xl p-4">
-      <h1 className="text-2xl font-bold">Notes</h1>
-      <form onSubmit={(e) => {
-        e.preventDefault();
-      }} className="w-auto max-w-md mx-auto flex flex-col space-y-6">
-        <input type="text" 
-        placeholder='Title'
-        value={form.title}
-        onChange={(e) => setForm({...form, title: e.target.value})}
-        className="border rounded border-gray-300 p-1"
-        />
-        <textarea placeholder='Content' value={form.content}
-        onChange={(e) => setForm({...form, content: e.target.value})}
-        className="border rounded border-gray-300 p-1"
-        ></textarea>
-      </form>
+      <h1 className="text-2xl font-bold" onClick={reloadData}>
+        Notes
+      </h1>
+      <NoteForm onAdd={addNote} />
+      <NotesList notes={notes} onRemove={removeNote} />
     </div>
-  )
-}
+  );
+};
 
-export default Home
+export const getServerSideProps: GetServerSideProps = async () => {
+  const notes = await prisma?.note.findMany();
+  return {
+    props: {
+      notes,
+    },
+  };
+};
+
+export default Home;
